@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+    <meta name="theme-color" content="#faebd7" />
+    <title>NASA APOD API</title>
+    <style>
+      body {
+        margin: 0px;
+        padding: 0px;
+        font-family: monospace;
+        background-color: antiquewhite;
+        padding-bottom: 10px;
+      }
+     /*  #bg {
+        height: 100%;
+        width: 100%;
+      }
+      .title {
+        text-align: center;
+      }
+
+      #title {
+        text-align: center;
+        font-weight: 700;
+        font-size: large;
+        color: gray;
+      }
+
+      #date {
+        font-weight: 500;
+        color: brown;
+      }
+
+      #exp {
+        font-weight: 500;
+        font-size: 16px;
+      }
+      #ale{
+        font-size: 18px;
+        padding: 5px 15px 0px 15px;
+        margin: 2px;
+      }
+      #title,
+      #date,
+      #exp{
+        margin: 2px;
+        padding: 5px 15px 5px 15px;
+      }
+
+      button, a{
+          border : 0px;
+          background-color:burlywood;
+          color:white;
+          padding:10px 12px 10px 12px;
+          text-decoration: none;
+      } */
+    </style>
+  </head>
+  <body>
+    <div class="loader hidden">
+      <img src="rocket-launch.gif" alt="rocket loading animation" />
+    </div>
+    <main class="container">
+      <h1 class="title">ASTRONOMY PICTURE OF THE DAY</h1>
+      <div class="navigation-container">
+        <span class="background"></span>
+        <!--result nav-->
+        <span class="navigation-items" id="resultsNav">
+          <h3 class="clickable" onclick="updateDOM('favorate')">
+          See your liked images
+          </h3>
+          <h3>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</h3>
+        <!--   <h3 class="clickable" onclick="getNasaPictures()">💙load more</h3> -->
+        </span>
+        <!--favorates nav-->
+        <span class="navigation-items hidden" id="favoratesNav">
+          <h3 class="clickable" onclick="getNasaPictures()">
+            Load more Images
+          </h3>
+        </span> 
+      </div>
+      <!--images container-->
+      <div class="images-container"></div>
+    </div>
+    <!--save confirmation-->
+   <!--  <div class="save-confirmed" hidden>
+      <p>❤️Liked</p>
+    </div> -->
+    </main>
+    <div class="container">
+      <h3 class="clickable" onclick="getMorePictures()">load more</h3>
+    </div>
+    <script>
+//       fetch the data from nasa apod api (read about await & fetch from MDN docs)
+const resultNav = document.getElementById("resultsNav");
+const favoratesNav = document.getElementById("favoratesNav");
+const imagesContainer = document.querySelector(".images-container");
+const saveConfirmed = document.querySelector(".save-confirmed");
+const loader = document.querySelector(".loader");
+
+//NASA API
+const count = 100;
+const apiKey = "nxQJRNEIOgKssl5PgStlD8wXspHwVanIOanYEVc8";
+const apiUrl = `https://api.nasa.gov/planetary/apod?api_key=${apiKey}&count=${count}`;
+let show=10;
+let resultsArray = [];
+let favorates = {};
+
+function showContent(page) {
+  window.scrollTo({
+    top: 0,
+    behavior: "instant",
+  });
+  if (page === "results") {
+    resultNav.classList.remove("hidden");
+    favoratesNav.classList.add("hidden");
+  } else {
+    resultNav.classList.add("hidden");
+    favoratesNav.classList.remove("hidden");
+  }
+  loader.classList.add("hidden");
+}
+
+function createDOM(page) {
+  const currentArray =
+    page === "results" ? resultsArray : Object.values(favorates);
+  currentArray.forEach((result,i) => {
+    //card container
+    if(i<show){
+
+      const card = document.createElement("div");
+    card.classList.add("card");
+    //link
+    const link = document.createElement("a");
+    link.href = result.hdurl;
+    link.title = "View Full Image";
+    link.target = "_blank";
+    //image
+    const image = document.createElement("img");
+    image.src = result.url;
+    image.alt = "NASA Picture of day";
+    image.loading = "lazy";
+    image.classList.add("card-img-top");
+    //card body
+    const cardBody = document.createElement("div");
+    cardBody.classList.add("card-body");
+    //card title
+    const cardTitle = document.createElement("h5");
+    cardTitle.classList.add("card-title");
+    cardTitle.textContent = result.title;
+    //save text
+    const saveText = document.createElement("p");
+    saveText.classList.add("likebutton");
+    saveText.setAttribute("id", result.url);
+    if (page === "results") {
+      saveText.textContent = "LIKE";
+      saveText.setAttribute("onclick", `saveFavorate('${result.url}')`);
+    } else {
+      saveText.textContent = "Remove from Liked";
+      saveText.setAttribute("onclick", `removeFavorate('${result.url}')`);
+    }
+    //card text
+    const cardText = document.createElement("p");
+    cardText.textContent = result.explanation;
+    //footer container
+    const footer = document.createElement("small");
+    footer.classList.add("text-muted");
+    //date
+    const date = document.createElement("strong");
+    date.textContent = result.date;
+    //copyright
+    const copyrightResult =
+      result.copyright === undefined ? "" : result.copyright;
+    const copyright = document.createElement("span");
+    copyright.textContent = `  ${copyrightResult}`;
+    //append
+    footer.append(date, copyright);
+    cardBody.append(cardTitle, saveText, cardText, footer);
+    link.appendChild(image);
+    card.append(link, cardBody);
+    imagesContainer.appendChild(card);
+    }
+  });
+}
+
+function updateDOM(page) {
+  //get fav from localstorage
+  if (localStorage.getItem("nasaFavorates")) {
+    favorates = JSON.parse(localStorage.getItem("nasaFavorates"));
+  }
+  imagesContainer.textContent = "";
+  createDOM(page);
+  showContent(page);
+}
+
+//get 10 images from api
+async function getNasaPictures() {
+  //show loader
+  loader.classList.remove("hidden");
+  try {
+    const response = await fetch(apiUrl);
+    resultsArray = await response.json();
+    console.log(resultsArray);
+    updateDOM("results");
+  } catch (error) {
+    //catche error here
+    console.log(error);
+  }
+}
+
+async function getMorePictures(){
+  setTimeout(() => {
+        show=show+10;
+        createDOM("results")
+      }, 1000);
+}
+  //show loader
+ 
+
+
+//add result to fav
+function saveFavorate(itemUrl) {
+  //loop
+
+  resultsArray.forEach((item) => {
+    let liked = document.getElementById(itemUrl);
+    setTimeout(() => {
+      if (liked.innerText == "❤️") {
+        liked.textContent = "LIKE";
+        removeFavorate(itemUrl, false);
+      }
+    }, 1000);
+
+    if (item.url.includes(itemUrl) && !favorates[itemUrl]) {
+      favorates[itemUrl] = item;
+      console.log(favorates);
+
+      console.log("call");
+      //show save confirmation for 2 seconds
+      let like = document.getElementById(itemUrl);
+      /* saveConfirmed.hidden = false; */
+      setTimeout(() => {
+        /* saveConfirmed.hidden = true; */
+        console.log(like.innerText);
+
+        like.textContent = "❤️";
+      }, 2000);
+      //set favorate in localStorage
+      localStorage.setItem("nasaFavorates", JSON.stringify(favorates));
+    }
+  });
+}
+
+//remove result from fav
+function removeFavorate(itemUrl, update = true) {
+  console.log(itemUrl, update);
+  if (favorates[itemUrl]) {
+    delete favorates[itemUrl];
+    //set favorate in localStorage
+    localStorage.setItem("nasaFavorates", JSON.stringify(favorates));
+    console.log(update);
+    if (update) {
+      updateDOM("favorates");
+    }
+  }
+}
+
+//onload
+getNasaPictures();
+    </script>
+  </body>
+</html>
